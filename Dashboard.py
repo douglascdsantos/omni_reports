@@ -98,7 +98,10 @@ mes_selecionado = st.segmented_control(
                                       )
 st.write(f'O mes selecionado é {mes_selecionado}')
 
-st.plotly_chart(graf_interacoes('Nome Operador Abreviado',mes_selecionado))
+st.plotly_chart(graf_interacoes('Nome Operador Abreviado',mes_selecionado), use_container_width=True, config={
+    'displayModeBar': False,  # Remove a barra superior
+    'staticPlot': True        # Torna o gráfico completamente estático
+}))
 
 
 
