@@ -4,8 +4,10 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 st.set_page_config(layout="wide")
-locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')  # Linux/Mac
-
+try:
+    locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
+except locale.Error:
+    locale.setlocale(locale.LC_TIME, '')  # fallback para o padrão do sistema
 # %%
 # %%
 bd = st.secrets['data']['banco']
