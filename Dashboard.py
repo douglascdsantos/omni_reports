@@ -100,7 +100,33 @@ def graf_interacoes(coluna, mes_ano=None, operador = None, ordena_cat = False,n_
 
 #%%
 
+#%%
 operadores_disponiveis = sorted(df_cobranca_tratada['Nome Operador Abreviado'].unique())
+
+#%% autenticaçõa
+def autenticar_usuario():
+    st.markdown("### 🔒 Login obrigatório")
+    with st.form("login_form"):
+        usuario = st.text_input("Usuário")
+        senha = st.text_input("Senha", type="password")
+        submit = st.form_submit_button("Entrar")
+
+        if submit:
+            usuarios_validos = st.secrets['login']
+            if usuario in usuarios_validos and senha == usuarios_validos[usuario]:
+                st.session_state['autenticado'] = True
+                st.session_state['usuario'] = usuario
+                st.success("Login realizado com sucesso!")
+                st.rerun()
+            else:
+                st.error("Usuário ou senha inválidos.")
+
+# Checa se já está logado
+if 'autenticado' not in st.session_state or not st.session_state['autenticado']:
+    autenticar_usuario()
+    st.stop()  # Interrompe execução até autenticar
+
+
 
 # %% elementos graficos
 st.title('Painel de Acompanhamento de Interações da Cobrança')
