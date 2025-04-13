@@ -85,11 +85,20 @@ st.metric("Total Interações",df_cobranca_tratada.shape[0])
 
 coluna1, coluna2, coluna3 = st.columns(3)
 with coluna1:
-    st.plotly_chart(fig_interacoes_cob)
+    st.plotly_chart(fig_interacoes_cob, use_container_width=True, config={
+    'displayModeBar': False,  # Remove a barra superior
+    'staticPlot': True        # Torna o gráfico completamente estático
+})
 with coluna2:
-    st.plotly_chart(fig_interacoes_dia_sem)
+    st.plotly_chart(fig_interacoes_dia_sem, use_container_width=True, config={
+    'displayModeBar': False,  # Remove a barra superior
+    'staticPlot': True        # Torna o gráfico completamente estático
+})
 with coluna3:
-    st.plotly_chart(fig_interacoes_hora)
+    st.plotly_chart(fig_interacoes_hora, use_container_width=True, config={
+    'displayModeBar': False,  # Remove a barra superior
+    'staticPlot': True        # Torna o gráfico completamente estático
+})
 
 mes_selecionado = st.segmented_control(
                                         "Selecione o mês:",
