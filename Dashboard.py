@@ -26,7 +26,7 @@ df_cobranca.rename(columns={'Data':'data_hora', 'Descrição':'Tipo Interação'
 df_cobranca['data'] = df_cobranca['data_hora'].dt.date
 df_cobranca['hora'] = df_cobranca['data_hora'].dt.time
 df_cobranca['hora_inteira'] = df_cobranca['data_hora'].dt.hour
-df_cobranca['hora_inteira'] = df_cobranca['hora_inteira'].astype(str)
+df_cobranca['hora_inteira'] = df_cobranca['hora_inteira'].astype(str).str.zfill(2) + ':00'
 df_cobranca['Nome Operador Abreviado'] = df_cobranca['Nome Operador'].apply(abreviar_nome)
 # df_cobranca['Dia da Semana'] = df_cobranca['data_hora'].dt.strftime('%A')
 # df_cobranca['MesAno'] = df_cobranca['data_hora'].dt.strftime('%B/%Y').str.capitalize()
@@ -38,38 +38,63 @@ df_meses = df_cobranca[['MesAno', 'MesAno_dt']].drop_duplicates().sort_values('M
 meses_disponiveis = df_meses['MesAno'].tolist()
 df_cobranca_tratada = df_cobranca.copy()
 #%%
-#df_cobranca['MesAno'].unique()
+#df_cobranca_tratada[df_cobranca_tratada['MesAno'] == 'Abril/2025']
+#df_cobranca['hora_inteira'].str.zfill(2) + ':00'
+df_cobranca.groupby('Contrato').size().reset_index(name='Quantidade').sort_values('Quantidade', ascending=False).head(15)
 #%%funcoes de grafico
-def graf_interacoes(coluna, mes_ano=None, operador = None, ordena_cat = False,n_top = None):
+def graf_interacoes(coluna, mes_ano=None, operador=None, data = None, ordena_cat=False, n_top=None, tp_filtro = None):
     df = df_cobranca_tratada.copy()
-    if mes_ano:
-        df = df_cobranca_tratada[df_cobranca_tratada['MesAno'] == mes_ano].groupby(coluna).size().reset_index(name='Quantidade')
+
+    if tp_filtro == "Mês" and mes_ano:
+        df = df[df['MesAno'] == mes_ano]
+
+    if tp_filtro == "Data específica" and data:
+        df = df[df['data'] == data]
+
+    # if mes_ano:
+    #     df = df[df['MesAno'] == mes_ano]
+
+    # if data:
+    #     df = df[df['data'] == data]
+
     if operador:
-        df = df_cobranca_tratada[df_cobranca_tratada['Nome Operador Abreviado'] == operador].groupby(coluna).size().reset_index(name='Quantidade')
-    # if mes_ano == None and operador == None:
-    #     df = df_cobranca_tratada.groupby(coluna).size().reset_index(name='Quantidade')
-    # elif mes_ano != None and operador == None:
-    #     df = df_cobranca_tratada.query('MesAno == @mes_ano').groupby(coluna).size().reset_index(name='Quantidade')
-    # elif mes_ano == None and operador != None:
-    #     df = df_cobranca_tratada.query('`Nome Operador Abreviado` == @operador').groupby(coluna).size().reset_index(name='Quantidade')
-    # elif mes_ano != None and operador != None:
-    #     df = df_cobranca_tratada.query('MesAno == @mes_ano and `Nome Operador Abreviado` == @operador').groupby(coluna).size().reset_index(name='Quantidade')
-    # # else:
-    # #     df = df_cobranca_tratada.query('MesAno == @mes_ano').groupby(coluna).size().reset_index(name='Quantidade')
-    if mes_ano == None and operador == None:
-        df = df_cobranca_tratada.groupby(coluna).size().reset_index(name='Quantidade')
-    if n_top == None:
-        pass
-    else:
+        df = df[df['Nome Operador Abreviado'] == operador]
+
+    df = df.groupby(coluna).size().reset_index(name='Quantidade')
+
+    if n_top is not None:
         df = df.head(n_top)
-    txt_top = '' if n_top == None else f'TOP {n_top} '
+
+    txt_top = '' if n_top is None else f'TOP {n_top} '
+
     return px.bar(
-                    df.sort_values(coluna,ascending=True) if ordena_cat else df.sort_values('Quantidade',ascending=False),
-                    y = 'Quantidade',
-                    x = coluna,
-                    text_auto = True,
-                    title = f'{txt_top}Interações por {coluna}'
-                )
+        df.sort_values(coluna, ascending=True) if ordena_cat else df.sort_values('Quantidade', ascending=False),
+        y='Quantidade',
+        x=coluna,
+        text_auto=True,
+        title=f'{txt_top}Interações por {coluna}'
+    )
+
+# def graf_interacoes(coluna, mes_ano=None, operador = None, ordena_cat = False,n_top = None):
+#     df = df_cobranca_tratada.copy()
+#     if mes_ano:
+#         df = df_cobranca_tratada[df_cobranca_tratada['MesAno'] == mes_ano].groupby(coluna).size().reset_index(name='Quantidade')
+#     if operador:
+#         df = df_cobranca_tratada[df_cobranca_tratada['Nome Operador Abreviado'] == operador].groupby(coluna).size().reset_index(name='Quantidade')
+#     if mes_ano == None and operador == None:
+#         df = df_cobranca_tratada.groupby(coluna).size().reset_index(name='Quantidade')
+#     if n_top == None:
+#         pass
+#     else:
+#         df = df.head(n_top)
+#     txt_top = '' if n_top == None else f'TOP {n_top} '
+#     return px.bar(
+#                     df.sort_values(coluna,ascending=True) if ordena_cat else df.sort_values('Quantidade',ascending=False),
+#                     y = 'Quantidade',
+#                     x = coluna,
+#                     text_auto = True,
+#                     title = f'{txt_top}Interações por {coluna}'
+#                 )
 #%%
 
 # #%%
@@ -129,28 +154,53 @@ if 'autenticado' not in st.session_state or not st.session_state['autenticado']:
 
 
 # %% elementos graficos
-st.title('Painel de Acompanhamento de Interações da Cobrança')
-st.metric("Total Interações",df_cobranca_tratada.shape[0])
+#st.title('Painel de Acompanhamento de Interações da Cobrança')
+col1, col2 = st.columns([0.9, 0.1])  # você pode ajustar os tamanhos conforme necessário
+with col1:
+    st.title("Painel de Acompanhamento de Interações da Cobrança")
+
+with col2:
+    st.image("https://www.omni.com.br/wp-content/themes/omni/assets/images/logos/logo-omni.svg?v=08082023202447", width=100)
+
+# st.metric("Total Interações 2025",df_cobranca_tratada.shape[0])
+st.metric("Total Interações 2025", f"{df_cobranca_tratada.shape[0]:,}".replace(",", "."))
 st.plotly_chart(graf_interacoes('Mes e Ano', ordena_cat=True),
                 use_container_width=True,
                 config={'displayModeBar': False,  # Remove a barra superior
                         'staticPlot': True        # Torna o gráfico completamente estático
                         }
                 )
+
+
 coluna1, coluna2, _ = st.columns([1, 2, 0.0001])  # a última é "fantasma" só pra alinhar melhor
 with coluna1:
-    mes_selecionado = st.segmented_control(
-                                            "Selecione o mês:",
-                                            options=meses_disponiveis,
-                                            format_func=lambda x: x  # opcional se já estiver formatado
-                                        )
+    tipo_filtro = st.radio(
+        "🔎 deseja filtrar o período por:",
+        ["Mês", "Data específica"],
+        horizontal=True
+    )
+    if tipo_filtro == "Mês":
+        mes_selecionado = st.selectbox("Selecione o mês:", meses_disponiveis)
+        data_especifica = None
+    else:
+        data_especifica = st.date_input("Selecione uma data específica:")
+        mes_selecionado = None
+
+
+#     mes_selecionado = st.segmented_control(
+#                                             "Selecione o mês:",
+#                                             options=meses_disponiveis,
+#                                             format_func=lambda x: x  # opcional se já estiver formatado
+#                                         )
+# with coluna2:
+#     data_especifica = st.date_input("Selecione uma data (opcional):")   
 with coluna2:
     operador_selecionado = st.segmented_control(
                                             "Selecione o Operador:",
                                             options=operadores_disponiveis,
                                             format_func=lambda x: x  # opcional se já estiver formatado
                                         )
-st.write(f"O mes selecionado é {mes_selecionado if mes_selecionado is not None else 'Todos'} e operador é {operador_selecionado if operador_selecionado is not None else 'Todos'}")
+st.write(f"O mes selecionado é {mes_selecionado if mes_selecionado is not None else 'Todos'}, a Data é {data_especifica if data_especifica is not None else 'Todos'} e operador é {operador_selecionado if operador_selecionado is not None else 'Todos'}")
 
 coluna1, coluna2, coluna3 = st.columns(3)
 with coluna1:
@@ -158,7 +208,7 @@ with coluna1:
 #     'displayModeBar': False,  # Remove a barra superior
 #     'staticPlot': True        # Torna o gráfico completamente estático
 # })
-    st.plotly_chart(graf_interacoes('Nome Operador Abreviado', mes_selecionado),
+    st.plotly_chart(graf_interacoes('Nome Operador Abreviado', mes_ano = mes_selecionado, data = data_especifica, tp_filtro= tipo_filtro),
                     use_container_width=True,
                     config={'displayModeBar': False,  # Remove a barra superior
                             'staticPlot': True        # Torna o gráfico completamente estático
@@ -169,7 +219,7 @@ with coluna2:
 #     'displayModeBar': False,  # Remove a barra superior
 #     'staticPlot': True        # Torna o gráfico completamente estático
 # })
-    st.plotly_chart(graf_interacoes('Dia da Semana',mes_selecionado, operador_selecionado),
+    st.plotly_chart(graf_interacoes('Dia da Semana', mes_ano= mes_selecionado, operador= operador_selecionado, data = data_especifica, tp_filtro= tipo_filtro),
                     use_container_width=True,
                     config={'displayModeBar': False,  # Remove a barra superior
                             'staticPlot': True        # Torna o gráfico completamente estático
@@ -180,7 +230,7 @@ with coluna3:
 #     'displayModeBar': False,  # Remove a barra superior
 #     'staticPlot': True        # Torna o gráfico completamente estático
 # })
-    st.plotly_chart(graf_interacoes('hora_inteira',mes_selecionado, operador_selecionado),
+    st.plotly_chart(graf_interacoes('hora_inteira', mes_ano= mes_selecionado, data = data_especifica, operador= operador_selecionado, ordena_cat=True, tp_filtro= tipo_filtro),
                     use_container_width=True,
                     config={'displayModeBar': False,  # Remove a barra superior
                             'staticPlot': True        # Torna o gráfico completamente estático
@@ -189,28 +239,77 @@ with coluna3:
 coluna1, coluna2, _ = st.columns([1, 2, 0.0001])  # a última é "fantasma" só pra alinhar melhor
 
 with coluna1:
-    st.plotly_chart(
-        graf_interacoes('Contrato', mes_selecionado, operador_selecionado, n_top=15),
-        use_container_width=True,
-        config={'displayModeBar': False, 'staticPlot': True}
-    )
+    df_contrato_filtrado = df_cobranca.copy()
+    # if mes_selecionado:
+    #     df_contrato_filtrado = df_contrato_filtrado[df_contrato_filtrado['MesAno'] == mes_selecionado]
+    if tipo_filtro == "Mês" and mes_selecionado:
+        df_contrato_filtrado = df_contrato_filtrado[df_contrato_filtrado['MesAno'] == mes_selecionado]
+
+    if tipo_filtro == "Data específica" and data_especifica:
+        df_contrato_filtrado = df_contrato_filtrado[df_contrato_filtrado['data'] == data_especifica]
+
+    if operador_selecionado:
+        df_contrato_filtrado = df_contrato_filtrado[df_contrato_filtrado['Nome Operador Abreviado'] == operador_selecionado]
+    df_contrato_filtrado = df_contrato_filtrado.groupby('Contrato').size().reset_index(name='Quantidade').sort_values('Quantidade', ascending=False).head(15).reset_index(drop=True)
+    st.markdown("📋 TOP 15 Contratos com maiores interações")
+    st.dataframe(df_contrato_filtrado, use_container_width=True)
+
+    # st.plotly_chart(
+    #     graf_interacoes('Contrato', mes_ano= mes_selecionado, operador= operador_selecionado, n_top=15),
+    #     use_container_width=True,
+    #     config={'displayModeBar': False, 'staticPlot': True}
+    # )
 
 with coluna2:
     st.plotly_chart(
-        graf_interacoes('Tipo Interação', mes_ano= mes_selecionado, operador= operador_selecionado),
+        graf_interacoes('Tipo Interação', mes_ano= mes_selecionado, data = data_especifica, operador= operador_selecionado, tp_filtro= tipo_filtro),
         use_container_width=True,
         config={'displayModeBar': False, 'staticPlot': True}
     )
 
 # %%
+coluna1, coluna2, _ = st.columns([1, 2, 0.0001])  # a última é "fantasma" só pra alinhar melhor
+with coluna1:
+    # Campo de filtro de contrato (apenas para a tabela final)
+    st.markdown("### 🔍 Filtro por Contrato")
+    contrato_filtrado = st.text_input("Digite o número do contrato (opcional):", placeholder="Ex: 1.00333.0000683.24")
+with coluna2:
+    tp_interacao_selecionado = st.segmented_control(
+                                            "Selecione o Tipo de Interação:",
+                                            options = sorted(df_cobranca_tratada['Tipo Interação'].unique()),
+                                            format_func=lambda x: x  # opcional se já estiver formatado
+                                        )
+# df_filtrado = df_cobranca_tratada.copy()
 
+# if mes_selecionado:
+#     df_filtrado = df_filtrado[df_filtrado['MesAno'] == mes_selecionado]
+
+# if operador_selecionado:
+#     df_filtrado = df_filtrado[df_filtrado['Nome Operador Abreviado'] == operador_selecionado]
+
+# if tp_interacao_selecionado:
+#     df_filtrado = df_filtrado[df_filtrado['Tipo Interação'] == tp_interacao_selecionado]
+
+# if contrato_filtrado:
+#     df_filtrado = df_filtrado[df_filtrado['Contrato'].astype(str).str.contains(contrato_filtrado, case=False)]
 df_filtrado = df_cobranca_tratada.copy()
 
-if mes_selecionado:
+if tipo_filtro == "Mês" and mes_selecionado:
     df_filtrado = df_filtrado[df_filtrado['MesAno'] == mes_selecionado]
+
+if tipo_filtro == "Data específica" and data_especifica:
+    df_filtrado = df_filtrado[df_filtrado['data'] == data_especifica]
 
 if operador_selecionado:
     df_filtrado = df_filtrado[df_filtrado['Nome Operador Abreviado'] == operador_selecionado]
 
+if contrato_filtrado:
+    df_filtrado = df_filtrado[df_filtrado['Contrato'].str.contains(contrato_filtrado)]
+
+if data_especifica:
+    df_filtrado = df_filtrado[df_filtrado['data'] == data_especifica]
 st.markdown("### 📋 Detalhamento das Interações")
-st.dataframe(df_filtrado, use_container_width=True)
+st.dataframe(df_filtrado[['data_hora', 'Ocorrência', 'Tipo Interação', 'Cliente', 'Nome', 'Contrato','Contato', 'Cod Operador', 'Nome Operador']], use_container_width=True)
+
+#%%
+# %%
