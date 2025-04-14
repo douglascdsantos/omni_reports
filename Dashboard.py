@@ -4,6 +4,8 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from babel.dates import format_datetime
+from datetime import datetime
+
 st.set_page_config(layout="wide")
 try:
     locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
@@ -42,31 +44,30 @@ df_cobranca_tratada = df_cobranca.copy()
 #df_cobranca['hora_inteira'].str.zfill(2) + ':00'
 df_cobranca.groupby('Contrato').size().reset_index(name='Quantidade').sort_values('Quantidade', ascending=False).head(15)
 #%%funcoes de grafico
-def graf_interacoes(coluna, mes_ano=None, operador=None, data = None, ordena_cat=False, n_top=None, tp_filtro = None):
+def graf_interacoes(coluna, mes_ano=None, operador=None, data=None, ordena_cat=False, n_top=None, tp_filtro=None):
     df = df_cobranca_tratada.copy()
 
-    if tp_filtro == "Mês" and mes_ano:
+    # Aplica filtro conforme tipo selecionado
+    if tp_filtro == "Mês" and mes_ano and mes_ano != "Todos":
         df = df[df['MesAno'] == mes_ano]
 
-    if tp_filtro == "Data específica" and data:
+    elif tp_filtro == "Data específica" and data:
         df = df[df['data'] == data]
 
-    # if mes_ano:
-    #     df = df[df['MesAno'] == mes_ano]
-
-    # if data:
-    #     df = df[df['data'] == data]
-
+    # Filtro por operador, se houver
     if operador:
         df = df[df['Nome Operador Abreviado'] == operador]
 
+    # Agrupamento
     df = df.groupby(coluna).size().reset_index(name='Quantidade')
 
+    # TOP N, se necessário
     if n_top is not None:
         df = df.head(n_top)
 
     txt_top = '' if n_top is None else f'TOP {n_top} '
 
+    # Gráfico
     return px.bar(
         df.sort_values(coluna, ascending=True) if ordena_cat else df.sort_values('Quantidade', ascending=False),
         y='Quantidade',
@@ -128,9 +129,13 @@ def graf_interacoes(coluna, mes_ano=None, operador=None, data = None, ordena_cat
 #%%
 operadores_disponiveis = sorted(df_cobranca_tratada['Nome Operador Abreviado'].unique())
 
-#%% autenticaçõa
+#%% autenticação
 def autenticar_usuario():
     st.markdown("### 🔒 Login obrigatório")
+    
+    # Texto explicativo
+    st.info("Em caso de dúvidas, procurar por **Kely Bemfica**.")
+
     with st.form("login_form"):
         usuario = st.text_input("Usuário")
         senha = st.text_input("Senha", type="password")
@@ -146,24 +151,78 @@ def autenticar_usuario():
             else:
                 st.error("Usuário ou senha inválidos.")
 
+    # # Rodapé com LinkedIn
+    # st.markdown(
+    #     """<hr style="margin-top: 2rem; margin-bottom: 0.5rem">
+    #     <div style='text-align: center; font-size: 0.9em; color: gray;'>
+    #         Desenvolvido por <a href='https://www.linkedin.com/in/douglascdsantos' target='_blank'>Douglas Santos</a>
+    #     </div>
+    #     """, unsafe_allow_html=True
+    # )
+
 # Checa se já está logado
 if 'autenticado' not in st.session_state or not st.session_state['autenticado']:
     autenticar_usuario()
-    st.stop()  # Interrompe execução até autenticar
-
-
+    st.stop()
 
 # %% elementos graficos
 #st.title('Painel de Acompanhamento de Interações da Cobrança')
 col1, col2 = st.columns([0.9, 0.1])  # você pode ajustar os tamanhos conforme necessário
 with col1:
     st.title("Painel de Acompanhamento de Interações da Cobrança")
+    st.write("Supervisor da área Ayslan Santos")
 
 with col2:
     st.image("https://www.omni.com.br/wp-content/themes/omni/assets/images/logos/logo-omni.svg?v=08082023202447", width=100)
 
 # st.metric("Total Interações 2025",df_cobranca_tratada.shape[0])
-st.metric("Total Interações 2025", f"{df_cobranca_tratada.shape[0]:,}".replace(",", "."))
+# Pega o mês atual com base na data de hoje
+# mes_atual = pd.to_datetime(datetime.today().strftime("%Y-%m"))
+
+# # Separa os dados
+# df_mes_atual = df_cobranca_tratada[df_cobranca_tratada['MesAno'] == mes_atual]
+# df_meses_fechados = df_cobranca_tratada[df_cobranca_tratada['MesAno'] < mes_atual]
+
+# # Calcula a média de registros (interações) por mês
+# media_fechados = df_meses_fechados.groupby('MesAno').size().mean()
+# total_mes_atual = df_mes_atual.shape[0]
+
+# # Formata os números
+# media_fechados_fmt = f"{int(media_fechados):,}".replace(",", ".")
+# total_mes_atual_fmt = f"{total_mes_atual:,}".replace(",", ".")
+#%%
+df_copia = df_cobranca_tratada.copy()
+df_copia['data_hora'] = pd.to_datetime(df_copia['data_hora'], errors='coerce')
+
+# Cria uma coluna auxiliar com o primeiro dia do mês
+df_copia['MesAno_dt'] = df_copia['data_hora'].dt.to_period("M").dt.to_timestamp()
+
+# Mês atual com base na data de hoje
+mes_atual = pd.to_datetime(datetime.today().strftime("%Y-%m-01"))
+
+# Filtra meses fechados e mês atual
+df_meses_fechados = df_copia[df_copia['MesAno_dt'] < mes_atual]
+df_mes_atual = df_copia[df_copia['MesAno_dt'] == mes_atual]
+
+# Calcula médias
+media_fechados = df_meses_fechados.groupby('MesAno_dt').size().mean()
+total_mes_atual = df_mes_atual.shape[0]
+
+# Formata números com ponto
+media_fechados_fmt = f"{int(media_fechados):,}".replace(",", ".")
+total_mes_atual_fmt = f"{total_mes_atual:,}".replace(",", ".")
+
+# Exibe os cards
+col0, col1, col2 = st.columns(3)
+with col0:
+    st.metric("Total Interações 2025", f"{df_cobranca_tratada.shape[0]:,}".replace(",", "."))
+with col1:
+    st.metric("📊 Média de Interações - Meses Fechados", media_fechados_fmt)
+
+with col2:
+    st.metric("📈 Interações - Mês Atual", total_mes_atual_fmt)
+
+
 st.plotly_chart(graf_interacoes('Mes e Ano', ordena_cat=True),
                 use_container_width=True,
                 config={'displayModeBar': False,  # Remove a barra superior
@@ -179,14 +238,14 @@ with coluna1:
         ["Mês", "Data específica"],
         horizontal=True
     )
+
     if tipo_filtro == "Mês":
-        mes_selecionado = st.selectbox("Selecione o mês:", meses_disponiveis)
+        meses_opcoes = ["Todos"] + meses_disponiveis  # adiciona a opção "Todos" no início
+        mes_selecionado = st.selectbox("Selecione o mês:", meses_opcoes)
         data_especifica = None
     else:
         data_especifica = st.date_input("Selecione uma data específica:")
         mes_selecionado = None
-
-
 #     mes_selecionado = st.segmented_control(
 #                                             "Selecione o mês:",
 #                                             options=meses_disponiveis,
@@ -240,9 +299,8 @@ coluna1, coluna2, _ = st.columns([1, 2, 0.0001])  # a última é "fantasma" só 
 
 with coluna1:
     df_contrato_filtrado = df_cobranca.copy()
-    # if mes_selecionado:
-    #     df_contrato_filtrado = df_contrato_filtrado[df_contrato_filtrado['MesAno'] == mes_selecionado]
-    if tipo_filtro == "Mês" and mes_selecionado:
+
+    if tipo_filtro == "Mês" and mes_selecionado and mes_selecionado != "Todos":
         df_contrato_filtrado = df_contrato_filtrado[df_contrato_filtrado['MesAno'] == mes_selecionado]
 
     if tipo_filtro == "Data específica" and data_especifica:
@@ -250,10 +308,19 @@ with coluna1:
 
     if operador_selecionado:
         df_contrato_filtrado = df_contrato_filtrado[df_contrato_filtrado['Nome Operador Abreviado'] == operador_selecionado]
-    df_contrato_filtrado = df_contrato_filtrado.groupby('Contrato').size().reset_index(name='Quantidade').sort_values('Quantidade', ascending=False).head(15).reset_index(drop=True)
+
+    df_contrato_filtrado = (
+        df_contrato_filtrado
+        .groupby('Contrato')
+        .size()
+        .reset_index(name='Quantidade')
+        .sort_values('Quantidade', ascending=False)
+        .head(15)
+        .reset_index(drop=True)
+    )
+
     st.markdown("📋 TOP 15 Contratos com maiores interações")
     st.dataframe(df_contrato_filtrado, use_container_width=True)
-
     # st.plotly_chart(
     #     graf_interacoes('Contrato', mes_ano= mes_selecionado, operador= operador_selecionado, n_top=15),
     #     use_container_width=True,
@@ -294,7 +361,7 @@ with coluna2:
 #     df_filtrado = df_filtrado[df_filtrado['Contrato'].astype(str).str.contains(contrato_filtrado, case=False)]
 df_filtrado = df_cobranca_tratada.copy()
 
-if tipo_filtro == "Mês" and mes_selecionado:
+if tipo_filtro == "Mês" and mes_selecionado and mes_selecionado != "Todos":
     df_filtrado = df_filtrado[df_filtrado['MesAno'] == mes_selecionado]
 
 if tipo_filtro == "Data específica" and data_especifica:
@@ -304,12 +371,20 @@ if operador_selecionado:
     df_filtrado = df_filtrado[df_filtrado['Nome Operador Abreviado'] == operador_selecionado]
 
 if contrato_filtrado:
-    df_filtrado = df_filtrado[df_filtrado['Contrato'].str.contains(contrato_filtrado)]
+    df_filtrado = df_filtrado[df_filtrado['Contrato'].str.contains(contrato_filtrado, na=False)]
 
-if data_especifica:
-    df_filtrado = df_filtrado[df_filtrado['data'] == data_especifica]
 st.markdown("### 📋 Detalhamento das Interações")
-st.dataframe(df_filtrado[['data_hora', 'Ocorrência', 'Tipo Interação', 'Cliente', 'Nome', 'Contrato','Contato', 'Cod Operador', 'Nome Operador']], use_container_width=True)
-
+st.dataframe(
+    df_filtrado[['data_hora', 'Ocorrência', 'Tipo Interação', 'Cliente', 'Nome', 'Contrato','Contato', 'Cod Operador', 'Nome Operador']],
+    use_container_width=True
+)
 #%%
 # %%
+# # Rodapé com LinkedIn
+# st.markdown(
+#     """<hr style="margin-top: 2rem; margin-bottom: 0.5rem">
+#     <div style='text-align: center; font-size: 0.9em; color: gray;'>
+#         Desenvolvido por <a href='https://www.linkedin.com/in/douglascdsantos' target='_blank'>Douglas Santos</a>
+#     </div>
+#     """, unsafe_allow_html=True
+# )
