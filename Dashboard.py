@@ -44,87 +44,63 @@ df_cobranca_tratada = df_cobranca.copy()
 #df_cobranca['hora_inteira'].str.zfill(2) + ':00'
 df_cobranca.groupby('Contrato').size().reset_index(name='Quantidade').sort_values('Quantidade', ascending=False).head(15)
 #%%funcoes de grafico
-def graf_interacoes(coluna, mes_ano=None, operador=None, data=None, ordena_cat=False, n_top=None, tp_filtro=None):
+
+def graf_interacoes(
+    coluna,
+    mes_ano=None,
+    operador=None,
+    data=None,
+    ordena_cat=False,
+    n_top=None,
+    tp_filtro=None,
+    interacao=None,
+    destacar_valores=None
+):
     df = df_cobranca_tratada.copy()
 
-    # Aplica filtro conforme tipo selecionado
+    # Filtro por tipo (mês ou data específica)
     if tp_filtro == "Mês" and mes_ano and mes_ano != "Todos":
         df = df[df['MesAno'] == mes_ano]
-
     elif tp_filtro == "Data específica" and data:
         df = df[df['data'] == data]
 
-    # Filtro por operador, se houver
+    # Filtro por operador e interação
     if operador:
-        df = df[df['Nome Operador Abreviado'] == operador]
+        df = df[df["Nome Operador Abreviado"].isin(operador)]
 
+    if interacao:
+        df = df[df["Tipo Interação"].isin(interacao)]
+    
     # Agrupamento
     df = df.groupby(coluna).size().reset_index(name='Quantidade')
 
-    # TOP N, se necessário
+    # Aplicar TOP N se necessário
     if n_top is not None:
         df = df.head(n_top)
 
     txt_top = '' if n_top is None else f'TOP {n_top} '
 
-    # Gráfico
-    return px.bar(
+    # Aplicar destaque visual se aplicável
+    if coluna in ["Nome Operador Abreviado", "Tipo Interação"] and destacar_valores:
+        df["Selecionado"] = df[coluna].apply(lambda x: "Selecionado" if x in destacar_valores else "Outros")
+        color_col = "Selecionado"
+        color_map = {"Selecionado": "#F37720", "Outros": "#0068C9"}
+    else:
+        color_col = None
+        color_map = None
+
+    # Criar gráfico
+    fig = px.bar(
         df.sort_values(coluna, ascending=True) if ordena_cat else df.sort_values('Quantidade', ascending=False),
         y='Quantidade',
         x=coluna,
         text_auto=True,
-        title=f'{txt_top}Interações por {coluna}'
+        title=f'{txt_top}Interações por {coluna}',
+        color=color_col,
+        color_discrete_map=color_map if color_col else None
     )
 
-# def graf_interacoes(coluna, mes_ano=None, operador = None, ordena_cat = False,n_top = None):
-#     df = df_cobranca_tratada.copy()
-#     if mes_ano:
-#         df = df_cobranca_tratada[df_cobranca_tratada['MesAno'] == mes_ano].groupby(coluna).size().reset_index(name='Quantidade')
-#     if operador:
-#         df = df_cobranca_tratada[df_cobranca_tratada['Nome Operador Abreviado'] == operador].groupby(coluna).size().reset_index(name='Quantidade')
-#     if mes_ano == None and operador == None:
-#         df = df_cobranca_tratada.groupby(coluna).size().reset_index(name='Quantidade')
-#     if n_top == None:
-#         pass
-#     else:
-#         df = df.head(n_top)
-#     txt_top = '' if n_top == None else f'TOP {n_top} '
-#     return px.bar(
-#                     df.sort_values(coluna,ascending=True) if ordena_cat else df.sort_values('Quantidade',ascending=False),
-#                     y = 'Quantidade',
-#                     x = coluna,
-#                     text_auto = True,
-#                     title = f'{txt_top}Interações por {coluna}'
-#                 )
-#%%
-
-# #%%
-# df_interacoes_colab = df_cobranca_tratada.groupby('Nome Operador Abreviado').size().reset_index(name='Quantidade')
-# df_interacoes_dia_sem = df_cobranca_tratada.groupby('Dia da Semana').size().reset_index(name='Quantidade')
-# df_interacoes_hora = df_cobranca_tratada.groupby('hora_inteira').size().reset_index(name='Quantidade')
-# #%%
-
-# #%% Graficos
-# fig_interacoes_dia_sem = px.bar(df_interacoes_dia_sem.sort_values('Quantidade',ascending=False),
-#                             y = 'Quantidade',
-#                             x = 'Dia da Semana',
-#                             text_auto = True,
-#                             title = 'Interações por Dia da Semana')
-
-# fig_interacoes_hora = px.bar(df_interacoes_hora.sort_values('Quantidade',ascending=True),
-#                             y = 'Quantidade',
-#                             x = 'hora_inteira',
-#                             text_auto = True,
-#                             title = 'Interações por Hora do Dia')
-
-# fig_interacoes_cob = px.bar(df_interacoes_colab.sort_values('Quantidade',ascending=True),
-#                             y = 'Nome Operador Abreviado',
-#                             x = 'Quantidade',
-#                             text_auto = True,
-#                             title = 'Interações por Colaborador')
-#df_cobranca.head()
-
-#%%
+    return fig
 
 #%%
 operadores_disponiveis = sorted(df_cobranca_tratada['Nome Operador Abreviado'].unique())
@@ -175,21 +151,6 @@ with col1:
 with col2:
     st.image("https://www.omni.com.br/wp-content/themes/omni/assets/images/logos/logo-omni.svg?v=08082023202447", width=100)
 
-# st.metric("Total Interações 2025",df_cobranca_tratada.shape[0])
-# Pega o mês atual com base na data de hoje
-# mes_atual = pd.to_datetime(datetime.today().strftime("%Y-%m"))
-
-# # Separa os dados
-# df_mes_atual = df_cobranca_tratada[df_cobranca_tratada['MesAno'] == mes_atual]
-# df_meses_fechados = df_cobranca_tratada[df_cobranca_tratada['MesAno'] < mes_atual]
-
-# # Calcula a média de registros (interações) por mês
-# media_fechados = df_meses_fechados.groupby('MesAno').size().mean()
-# total_mes_atual = df_mes_atual.shape[0]
-
-# # Formata os números
-# media_fechados_fmt = f"{int(media_fechados):,}".replace(",", ".")
-# total_mes_atual_fmt = f"{total_mes_atual:,}".replace(",", ".")
 #%%
 df_copia = df_cobranca_tratada.copy()
 df_copia['data_hora'] = pd.to_datetime(df_copia['data_hora'], errors='coerce')
@@ -246,50 +207,81 @@ with coluna1:
     else:
         data_especifica = st.date_input("Selecione uma data específica:")
         mes_selecionado = None
-#     mes_selecionado = st.segmented_control(
-#                                             "Selecione o mês:",
-#                                             options=meses_disponiveis,
-#                                             format_func=lambda x: x  # opcional se já estiver formatado
-#                                         )
-# with coluna2:
-#     data_especifica = st.date_input("Selecione uma data (opcional):")   
+  
 with coluna2:
-    operador_selecionado = st.segmented_control(
-                                            "Selecione o Operador:",
-                                            options=operadores_disponiveis,
-                                            format_func=lambda x: x  # opcional se já estiver formatado
-                                        )
-st.write(f"O mes selecionado é {mes_selecionado if mes_selecionado is not None else 'Todos'}, a Data é {data_especifica if data_especifica is not None else 'Todos'} e operador é {operador_selecionado if operador_selecionado is not None else 'Todos'}")
+    operadores_disponiveis = sorted(df_cobranca_tratada['Nome Operador Abreviado'].unique())
+    selecionar_todos_operadores = st.checkbox("Selecionar todos os operadores", value=True)
+
+    if selecionar_todos_operadores:
+        operador_selecionado = st.multiselect(
+            "Selecione o(s) Operador(es):",
+            options=operadores_disponiveis,
+            default=operadores_disponiveis
+        )
+    else:
+        operador_selecionado = st.multiselect(
+            "Selecione o(s) Operador(es):",
+            options=operadores_disponiveis
+        )
+
+# %%
+# coluna1, coluna2, _ = st.columns([1, 2, 0.0001])  # a última é "fantasma" só pra alinhar melhor
+# with coluna1:
+
+
+# with coluna2:
+tipos_disponiveis = sorted(df_cobranca_tratada['Tipo Interação'].unique())
+selecionar_todos_tipos = st.checkbox("Selecionar todos os tipos", value=True)
+
+if selecionar_todos_tipos:
+    tp_interacao_selecionado = st.multiselect(
+        "Selecione o(s) Tipo(s) de Interação:",
+        options=tipos_disponiveis,
+        default=tipos_disponiveis
+    )
+else:
+    tp_interacao_selecionado = st.multiselect(
+        "Selecione o(s) Tipo(s) de Interação:",
+        options=tipos_disponiveis
+    )
+#st.write(f"O mes selecionado é {mes_selecionado if mes_selecionado is not None else 'Todos'}, a Data é {data_especifica if data_especifica is not None else 'Todos'}, operador é {operador_selecionado if operador_selecionado is not None else 'Todos'} e Tipo Operação é {tp_interacao_selecionado if tp_interacao_selecionado is not None else 'Todos'}")
+
 
 coluna1, coluna2, coluna3 = st.columns(3)
 with coluna1:
-#     st.plotly_chart(fig_interacoes_cob, use_container_width=True, config={
-#     'displayModeBar': False,  # Remove a barra superior
-#     'staticPlot': True        # Torna o gráfico completamente estático
-# })
-    st.plotly_chart(graf_interacoes('Nome Operador Abreviado', mes_ano = mes_selecionado, data = data_especifica, tp_filtro= tipo_filtro),
+    st.plotly_chart(graf_interacoes('Nome Operador Abreviado',
+                                    mes_ano = mes_selecionado,
+                                    operador= operador_selecionado,
+                                    data = data_especifica,
+                                    interacao = tp_interacao_selecionado,
+                                    tp_filtro= tipo_filtro,
+                                    destacar_valores = "Nome Operador Abreviado"),
                     use_container_width=True,
                     config={'displayModeBar': False,  # Remove a barra superior
                             'staticPlot': True        # Torna o gráfico completamente estático
                             }
                     )
 with coluna2:
-#     st.plotly_chart(fig_interacoes_dia_sem, use_container_width=True, config={
-#     'displayModeBar': False,  # Remove a barra superior
-#     'staticPlot': True        # Torna o gráfico completamente estático
-# })
-    st.plotly_chart(graf_interacoes('Dia da Semana', mes_ano= mes_selecionado, operador= operador_selecionado, data = data_especifica, tp_filtro= tipo_filtro),
+    st.plotly_chart(graf_interacoes('Dia da Semana',
+                                    mes_ano= mes_selecionado,
+                                    operador= operador_selecionado,
+                                    interacao = tp_interacao_selecionado,
+                                    data = data_especifica,
+                                    tp_filtro= tipo_filtro),
                     use_container_width=True,
                     config={'displayModeBar': False,  # Remove a barra superior
                             'staticPlot': True        # Torna o gráfico completamente estático
                             }
                     )
 with coluna3:
-#     st.plotly_chart(fig_interacoes_hora, use_container_width=True, config={
-#     'displayModeBar': False,  # Remove a barra superior
-#     'staticPlot': True        # Torna o gráfico completamente estático
-# })
-    st.plotly_chart(graf_interacoes('hora_inteira', mes_ano= mes_selecionado, data = data_especifica, operador= operador_selecionado, ordena_cat=True, tp_filtro= tipo_filtro),
+
+    st.plotly_chart(graf_interacoes('hora_inteira',
+                                    mes_ano= mes_selecionado,
+                                    data = data_especifica,
+                                    operador= operador_selecionado,
+                                    interacao = tp_interacao_selecionado,
+                                    ordena_cat=True,
+                                    tp_filtro= tipo_filtro),
                     use_container_width=True,
                     config={'displayModeBar': False,  # Remove a barra superior
                             'staticPlot': True        # Torna o gráfico completamente estático
@@ -307,7 +299,11 @@ with coluna1:
         df_contrato_filtrado = df_contrato_filtrado[df_contrato_filtrado['data'] == data_especifica]
 
     if operador_selecionado:
-        df_contrato_filtrado = df_contrato_filtrado[df_contrato_filtrado['Nome Operador Abreviado'] == operador_selecionado]
+        df_contrato_filtrado = df_contrato_filtrado[df_contrato_filtrado["Nome Operador Abreviado"].isin(operador_selecionado)]
+
+    if tp_interacao_selecionado:
+        df_contrato_filtrado = df_contrato_filtrado[df_contrato_filtrado["Tipo Interação"].isin(tp_interacao_selecionado)]
+
 
     df_contrato_filtrado = (
         df_contrato_filtrado
@@ -321,44 +317,26 @@ with coluna1:
 
     st.markdown("📋 TOP 15 Contratos com maiores interações")
     st.dataframe(df_contrato_filtrado, use_container_width=True)
-    # st.plotly_chart(
-    #     graf_interacoes('Contrato', mes_ano= mes_selecionado, operador= operador_selecionado, n_top=15),
-    #     use_container_width=True,
-    #     config={'displayModeBar': False, 'staticPlot': True}
-    # )
 
 with coluna2:
     st.plotly_chart(
-        graf_interacoes('Tipo Interação', mes_ano= mes_selecionado, data = data_especifica, operador= operador_selecionado, tp_filtro= tipo_filtro),
+        graf_interacoes('Tipo Interação',
+                        mes_ano= mes_selecionado,
+                        data = data_especifica,
+                        interacao = tp_interacao_selecionado,
+                        operador= operador_selecionado,
+                        tp_filtro= tipo_filtro),
+
         use_container_width=True,
         config={'displayModeBar': False, 'staticPlot': True}
     )
-
-# %%
 coluna1, coluna2, _ = st.columns([1, 2, 0.0001])  # a última é "fantasma" só pra alinhar melhor
+
 with coluna1:
     # Campo de filtro de contrato (apenas para a tabela final)
     st.markdown("### 🔍 Filtro por Contrato")
     contrato_filtrado = st.text_input("Digite o número do contrato (opcional):", placeholder="Ex: 1.00333.0000683.24")
-with coluna2:
-    tp_interacao_selecionado = st.segmented_control(
-                                            "Selecione o Tipo de Interação:",
-                                            options = sorted(df_cobranca_tratada['Tipo Interação'].unique()),
-                                            format_func=lambda x: x  # opcional se já estiver formatado
-                                        )
-# df_filtrado = df_cobranca_tratada.copy()
 
-# if mes_selecionado:
-#     df_filtrado = df_filtrado[df_filtrado['MesAno'] == mes_selecionado]
-
-# if operador_selecionado:
-#     df_filtrado = df_filtrado[df_filtrado['Nome Operador Abreviado'] == operador_selecionado]
-
-# if tp_interacao_selecionado:
-#     df_filtrado = df_filtrado[df_filtrado['Tipo Interação'] == tp_interacao_selecionado]
-
-# if contrato_filtrado:
-#     df_filtrado = df_filtrado[df_filtrado['Contrato'].astype(str).str.contains(contrato_filtrado, case=False)]
 df_filtrado = df_cobranca_tratada.copy()
 
 if tipo_filtro == "Mês" and mes_selecionado and mes_selecionado != "Todos":
@@ -367,8 +345,11 @@ if tipo_filtro == "Mês" and mes_selecionado and mes_selecionado != "Todos":
 if tipo_filtro == "Data específica" and data_especifica:
     df_filtrado = df_filtrado[df_filtrado['data'] == data_especifica]
 
+if tp_interacao_selecionado:
+        df_filtrado = df_filtrado[df_filtrado["Tipo Interação"].isin(tp_interacao_selecionado)]
+
 if operador_selecionado:
-    df_filtrado = df_filtrado[df_filtrado['Nome Operador Abreviado'] == operador_selecionado]
+    df_filtrado = df_filtrado[df_filtrado["Nome Operador Abreviado"].isin(operador_selecionado)]
 
 if contrato_filtrado:
     df_filtrado = df_filtrado[df_filtrado['Contrato'].str.contains(contrato_filtrado, na=False)]
