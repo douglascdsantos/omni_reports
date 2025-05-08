@@ -14,7 +14,11 @@ except locale.Error:
 # %%
 # %%
 bd = st.secrets['data']['banco']
-df_raw = pd.read_excel(bd,None)
+@st.cache_data(ttl=3600, show_spinner="Consultando API")
+def consulta_base():
+    return pd.read_excel(bd,None)
+df_raw = consulta_base()
+#df_raw = pd.read_excel(bd,None)
 df_cobranca_raw = df_raw['Acomp Cobrança']
 #%% funções
 def abreviar_nome(nome):
